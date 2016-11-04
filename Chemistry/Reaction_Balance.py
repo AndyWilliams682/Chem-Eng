@@ -10,7 +10,8 @@ products_count = 0
 products = {}
 basis_compound = False
 
-# A loop that takes string inputs and adds them as keys to the reactants dict, tied to a value (coefficient) of 1 initially
+# A loop that takes string inputs and adds them as keys to the reactants dict
+# All compound values (coefficient) are 1 initially
 while True:
     reactants_count += 1
     compound_input = input('Input the formula of reactant {}: '.format(reactants_count))
@@ -35,8 +36,8 @@ while basis_compound is False:
     # If the user inputs no compound, an empty string, then the balance will be done with whole coefficients (default)
     if basis_compound == '':
         print('Balance will be completed with whole coefficients\n')
-    
-    # If the user inputs a non-empty string, the code will check if that compound exists in the keys for products or reactants
+
+    # If the user inputs a non-empty string, the code will check if that compound exists in products or reactants
     # If the compound isn't present in the reaction, the prompt will repeat
     # If the compound is in the reaction, then it will be balanced with a coefficient of one
     elif type(basis_compound) == str:
@@ -53,8 +54,8 @@ total_compounds_dict = {**reactants, **products}
 total_compounds_int = len(total_compounds_dict)
 total_symbols_list = []
 
-# A list of symbols is a requirement for sp.linsolve to appropriately solve the system, and each one must be converted to a usable
-# sp.Symbol
+# A list of symbols is a requirement for sp.linsolve to appropriately solve the system, and each one must be converted
+# to sp.Symbol
 for key in total_compounds_dict.keys():
     total_symbols_list.append(sp.Symbol(key))
 
@@ -117,7 +118,7 @@ if balance is False:
     equation_matrix = sp.Matrix(equation_matrix)
     solution_vector = sp.Matrix(sp.zeros(rows, 1))
 
-    # A sympy set object containing values is output by the linsolve function from sympy, 
+    # A sympy set object containing values is output by the linsolve function from sympy,
     # which solves the matrix in terms of one of the compounds present (usually the last compound)
     solution_set = sp.linsolve((equation_matrix, solution_vector), total_symbols_list)
     solution_list = []
@@ -128,27 +129,27 @@ if balance is False:
 
     # Whichever symbol is present is the symbol that all coefficients are dependent on
     basis_symbol = next(iter(solution_list[0].atoms(sp.Symbol)))
-    
+
     # Assume the smallest coefficient is one
     smallest_coefficient = 1
-    
+
     # The smallest fraction must be obtained to balance in whole coefficients
     for coefficient in range(total_compounds_int):
         # Assuming the basis_symbol is equal to one, it can simply be removed
         solution_list[coefficient] = solution_list[coefficient] / basis_symbol
-        
+
         # If the coefficient that is left is smaller than the smallest coefficient stored, it will replace
         # the smallest coefficient
-        if solution_list[coefficient] < smallest_coefficient:
-            smallest_coefficient = solution_list[coefficient]
-    
-    # A multiplier will be obtained from the inverse of the smallest coefficient, and all other coefficients will be 
+        if 0 < (solution_list[coefficient] % 1) < smallest_coefficient:
+            smallest_coefficient = solution_list[coefficient] % 1
+
+    # A multiplier will be obtained from the inverse of the smallest coefficient, and all other coefficients will be
     # scaled by that multiplier
     for coefficient in range(total_compounds_int):
         multiplier = smallest_coefficient ** (-1)
 
         solution_list[coefficient] *= multiplier
-    
+
     # The coefficients return to the products/reactants dictionaries in their respective compound slots
     for coefficient_counter in range(len(solution_list)):
         if coefficient_counter >= len(reactants):
@@ -156,10 +157,10 @@ if balance is False:
 
         else:
             reactants[list(reactants.keys())[coefficient_counter]] = solution_list[coefficient_counter]
-    
+
     # Assume a divisor of one
     divisor = 1
-    
+
     # If there is a basis_compound, all coefficients will be scaled by the coefficient of that compound (the divisor)
     if basis_compound != '':
         if basis_compound in reactants:
