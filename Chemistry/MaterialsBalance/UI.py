@@ -1,3 +1,9 @@
+# This file contains all of the UI code for the multi_unit_solver.
+# This isn't finished yet, and probably won't be for a while.
+# I got sick of doing UI code by hand but Qt Designer won't convert
+# .ui files to python code for me, so once I get that figured out
+# I'll continue work on this
+
 import sys, random
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import (QFont, QIcon, QColor, QPixmap, QDrag, QPainter, QPen, QBrush, QPolygon)
