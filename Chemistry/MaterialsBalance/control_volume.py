@@ -135,4 +135,5 @@ def info():
         info_dict[info_key] = sp.sympify(additional_info)
 
 if __name__ == '__main__':
+    print(setup())
     print(info())
