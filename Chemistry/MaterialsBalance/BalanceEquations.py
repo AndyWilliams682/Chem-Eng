@@ -26,17 +26,36 @@ def setup(control_volume_dimensions, info_dict):
         if key != 'Direction':
 
             # Each path contributes to the g_b_es of the control volume
-            for path in control_volume_dimensions:
+            for path in control_volume_dimensions[:-1]:
 
                 # The total balance is set up differently than the species balances
                 # It is the sum of 'Total' * 'Direction' values for all paths
                 if key == 'Total':
                     g_b_e = sp.Add(g_b_e, sp.Mul(path['Direction'], path[key]))
 
-                # Species are handle similarly, but each total is also multiplied by the fraction for that species
+                # Species are handled similarly, but each total is also multiplied by the fraction for that species
                 else:
                     if path[key] != 0:
                         g_b_e = sp.Add(g_b_e, sp.Mul(path['Direction'], sp.Mul(path['Total'], path[key])))
+
+            if control_volume_dimensions[-1] != {}:
+                if key == 'Total':
+                    for reaction in control_volume_dimensions[-1]:
+                        total_change = 0
+
+                        if control_volume_dimensions[-1][reaction] != {}:
+                            for compound, coefficient in control_volume_dimensions[-1][reaction].items():
+                                if compound != 'Extent':
+                                    total_change += coefficient
+
+                            print(control_volume_dimensions[-1][reaction])
+                            g_b_e = sp.Add(g_b_e, sp.Mul(total_change, control_volume_dimensions[-1][reaction]['Extent']
+                                                         ))
+                else:
+                    for reaction in control_volume_dimensions[-1]:
+                        if key in control_volume_dimensions[-1][reaction]:
+                            g_b_e = sp.Add(g_b_e, sp.Mul(control_volume_dimensions[-1][reaction][key],
+                                                         control_volume_dimensions[-1][reaction]['Extent']))
 
             # This dictionary holds the g_b_es for each material that is involved
             equation_dict[key] = g_b_e
@@ -148,3 +167,12 @@ def solver(equations_dict):
 
                 # substitution is reset to False so new unknowns can be substituted
                 substitution = False
+
+if __name__ == '__main__':
+    from Chemistry.MaterialsBalance import control_volumes as cv
+    
+    CV = cv.setup()
+    Info_Dict = cv.info()
+    eqs = setup(CV, Info_Dict)
+    print(eqs)
+    print(solver(eqs))
