@@ -16,6 +16,63 @@ def setup():
     compound_count = 0
     list_of_species = []
 
+    # control_volume_dimensions[path number - 1] == {'Direction': 1/-1 (in or out), 'Total': total material in path,
+    # 'compound 1/2/3...': fraction of material in path}
+    #
+    # control_volume_dimensions == [path 1, path 2, path 3, ..., path n, reactions]
+    # control_volume_dimensions[-1] == {Reaction 1: {reactant: coefficient, product: coefficient, Extent: rxn extent}}
+    #
+    # Note that units of the total and the fractions must agree (Total = kg/s, fractions must be mass fractions)
+    # Variables can simply be input as variables (n1, y2, x5, m8, xi1, etc)
+    control_volume_dimensions = []
+    
+    # Each path and the reactions present are represented by dictionaries in the control_volume_dimensions list
+    for path in range(paths + 1):
+        control_volume_dimensions.insert(path, {})
+    
+    reaction_counter = 1
+
+    while True:
+        reaction_key = 'Reaction {}'.format(reaction_counter)
+        control_volume_dimensions[-1][reaction_key] = {}
+        reaction_counter += 1
+        reactant_count = 1
+
+        while True:
+            reactant_input = input('Input reactant {} for {}: '.format(reactant_count, reaction_key))
+
+            if reactant_input == '':
+                break
+
+            if reactant_input not in list_of_species:
+                list_of_species.append(reactant_input)
+                compound_count += 1
+
+            control_volume_dimensions[-1][reaction_key][reactant_input] = -1
+            reactant_count += 1
+
+        if control_volume_dimensions[-1][reaction_key] != {}:
+            product_count = 1
+
+            while True:
+                product_input = input('Input product {} for {}: '.format(product_count, reaction_key))
+
+                if product_input == '':
+                    break
+
+                if product_input not in list_of_species:
+                    list_of_species.append(product_input)
+                    compound_count += 1
+
+                control_volume_dimensions[-1][reaction_key][product_input] = 1
+                product_count += 1
+
+            control_volume_dimensions[-1][reaction_key]['Extent'] = sp.S(input('Input the extent of {}: '.format
+                                                                         (reaction_key)))
+
+        else:
+            break
+
     # This loop takes inputs until an empty string is provided. Each new string is appended to the list_of_species
     while True:
         compound_count += 1
@@ -24,21 +81,12 @@ def setup():
             break
         list_of_species.append(compound_input)
 
-    # control_volume_dimensions[path number] == {'Direction': 1/-1 (in or out), 'Total': total material in path,
-    # 'compound 1/2/3...': fraction of material in path}
-    # Note that units of the total and the fractions must agree (Total = kg/s, fractions must be mass fractions)
-    # Variables can simply be input as variables (n1, y2, x5, m8, etc)
-    control_volume_dimensions = []
-
-    for path in range(paths):
-        control_volume_dimensions.insert(path, {})
-
     path_counter = 1
 
     # This loop begins the construction of the control_volume_dimensions. Paths oriented in must be input first to
     # ensure their 'Direction' value matches up
     # The sympify function from sympy is used to evaluate strings into floating point or expressions
-    for path in control_volume_dimensions:
+    for path in control_volume_dimensions[:-1]:
         path['Direction'] = 1
 
         # This loop covers all keys in a given path (the list of species plus direction and total)
@@ -58,7 +106,7 @@ def setup():
             else:
                 material = list_of_species[value - 2]
                 path[material] = sp.S(input('Input the percentage of {} going through path {}: '.format(material,
-                                                                                                   path_counter)))
+                                                                                                        path_counter)))
         # The path counter increases for clarity of input prompts
         path_counter += 1
 
@@ -88,4 +136,3 @@ def info():
 
 if __name__ == '__main__':
     print(info())
-
