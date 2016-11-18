@@ -2,13 +2,15 @@
 # is solvable (determined using a degree of freedom analysis).
 
 # sympy is used to store and manipulate expressions
-# All inputs are handled using functions from the ControlVolume module
-# The DegreesOfFreedom module is used to determine if a control volume is solvable
-# The BalanceEquations module builds and solves general balance equations for the control volume
+# All inputs are handled using functions from the control_volumes module
+# Chemical Reaction balancing is done with the chemical_reactions module
+# The degrees_of_freedom module is used to determine if a control volume is solvable
+# The balance_equations module builds and solves general balance equations for the control volume
 import sympy as sp
-from Chemistry.MaterialsBalance import ControlVolume as cv
-from Chemistry.MaterialsBalance import DegreesOfFreedom as dof
-from Chemistry.MaterialsBalance import BalanceEquations as eqs
+from Chemistry.MaterialsBalance import control_volumes as cvs
+from Chemistry.MaterialsBalance import chemical_reactions as rxn
+from Chemistry.MaterialsBalance import degrees_of_freedom as dof
+from Chemistry.MaterialsBalance import balance_equations as eqs
 
 CV_list = []
 total_unknowns_list = []
@@ -32,13 +34,22 @@ while CV_count != CV_max:
     print('\n--------------------\nFor Control Volume {}\n--------------------\n'.format(CV_count))
 
     # Function called from ControlVolume. Takes in a large amount of inputs to construct a control volume
-    CV = cv.setup()
+    CV = cvs.setup()
 
     # For loop that checks each section in a control volume for unknowns, and appends them to the total_unknowns_list
-    for path in CV:
+    for path in CV[:-1]:
         for k, v in path.items():
             if k != 'Direction':
                 for symbol in v.atoms(sp.Symbol):
+                    if symbol not in total_unknowns_list:
+                        total_unknowns_list.append(symbol)
+
+    if CV[-1] != {}:
+        for reaction in CV[-1]:
+            if CV[-1][reaction] != {}:
+                CV[-1][reaction] = rxn.reaction_balance(CV[-1][reaction])
+
+                for symbol in sp.S(CV[-1][reaction]['Extent']).atoms(sp.Symbol):
                     if symbol not in total_unknowns_list:
                         total_unknowns_list.append(symbol)
 
@@ -50,7 +61,7 @@ unknown_total = len(total_unknowns_list)
 
 # Function called from ControlVolume. Takes in inputs until '' is provided. All inputs must be expressions set equal to
 # zero
-info_dict = cv.info()
+info_dict = cvs.info()
 
 # Predetermining the size of the equations_list by storing zeroes in the required slots
 for i in range(CV_max):
