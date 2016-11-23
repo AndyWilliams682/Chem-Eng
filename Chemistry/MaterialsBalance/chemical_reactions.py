@@ -153,3 +153,48 @@ def reaction_balance(reaction):
 
     # Return the balanced reaction
     return reaction
+
+
+def setup():
+    reaction_counter = 1
+    reaction_dict = {}
+
+    while True:
+        reaction_key = '{}'.format(reaction_counter)
+        reaction_dict[reaction_key] = {}
+
+        print('\n--------------------\nFor Reaction {}\n--------------------\n'.format(reaction_counter))
+
+        reaction_counter += 1
+        reactant_count = 1
+
+        while True:
+            reactant_input = input('Input reactant {}: '.format(reactant_count))
+
+            if reactant_input == '':
+                break
+
+            reaction_dict[reaction_key][reactant_input] = -1
+            reactant_count += 1
+
+        if reaction_dict[reaction_key] != {}:
+            product_count = 1
+
+            while True:
+                product_input = input('Input product {}: '.format(product_count))
+
+                if product_input == '':
+                    break
+
+                reaction_dict[reaction_key][product_input] = 1
+                product_count += 1
+
+            reaction_dict[reaction_key]['Extent'] = sp.S(input('Input the extent of reaction: '.format(reaction_key)))
+
+            reaction_balance(reaction_dict[reaction_key])
+
+        else:
+            return reaction_dict
+
+if __name__ == '__main__':
+    print(setup())
