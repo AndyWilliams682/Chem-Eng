@@ -18,11 +18,14 @@ solutions_dict = {}
 equations_list = []
 info_used_list = []
 
+# The setup function from the chemical_reaction module is called to obtain every present reaction in the whole system
+reaction_dict = rxn.setup()
+
 # CV_count is used to determine if the maximum number of control volumes has been reached
 CV_count = 0
 
 # This determines the total control volumes defined in the process
-CV_max = int(input('Input the number of control volumes: '))
+CV_max = int(input('\nInput the number of control volumes: '))
 
 # A continuous loop until the control_volume max has been reached
 while CV_count != CV_max:
@@ -34,7 +37,7 @@ while CV_count != CV_max:
     print('\n--------------------\nFor Control Volume {}\n--------------------\n'.format(CV_count))
 
     # Function called from ControlVolume. Takes in a large amount of inputs to construct a control volume
-    CV = cvs.setup()
+    CV = cvs.setup(reaction_dict)
 
     # For loop that checks each section in a control volume for unknowns, and appends them to the total_unknowns_list
     for path in CV[:-1]:
@@ -43,7 +46,8 @@ while CV_count != CV_max:
                 for symbol in v.atoms(sp.Symbol):
                     if symbol not in total_unknowns_list:
                         total_unknowns_list.append(symbol)
-
+    
+    # If a reaction is present, then each reaction with an unknown extent will be included in the total_unknowns_list
     if CV[-1] != {}:
         for reaction in CV[-1]:
             if CV[-1][reaction] != {}:
