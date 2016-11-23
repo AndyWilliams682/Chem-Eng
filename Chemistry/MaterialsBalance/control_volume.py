@@ -6,8 +6,7 @@ import sympy as sp
 # This function takes no inputs and allows for the input of a control volume's properties to be organized into
 # an array, where each position in the array contains a dict to represent the properties of that path, which are kept
 # as sympy expressions for later
-def setup():
-
+def setup(reaction_dict):
     # The user must provide the total number of paths into a control volume, and the total number oriented into the CV
     paths = int(input('Input the number of paths crossing the control volume boundary: '))
     paths_in = int(input('Input the number of paths entering the control volume: '))
@@ -25,53 +24,24 @@ def setup():
     # Note that units of the total and the fractions must agree (Total = kg/s, fractions must be mass fractions)
     # Variables can simply be input as variables (n1, y2, x5, m8, xi1, etc)
     control_volume_dimensions = []
-    
+
     # Each path and the reactions present are represented by dictionaries in the control_volume_dimensions list
     for path in range(paths + 1):
         control_volume_dimensions.insert(path, {})
-    
-    reaction_counter = 1
 
     while True:
-        reaction_key = 'Reaction {}'.format(reaction_counter)
-        control_volume_dimensions[-1][reaction_key] = {}
-        reaction_counter += 1
-        reactant_count = 1
+        reaction_key = str(input('Input the integer that represents a reaction present in this control volume: '))
 
-        while True:
-            reactant_input = input('Input reactant {} for {}: '.format(reactant_count, reaction_key))
-
-            if reactant_input == '':
-                break
-
-            if reactant_input not in list_of_species:
-                list_of_species.append(reactant_input)
-                compound_count += 1
-
-            control_volume_dimensions[-1][reaction_key][reactant_input] = -1
-            reactant_count += 1
-
-        if control_volume_dimensions[-1][reaction_key] != {}:
-            product_count = 1
-
-            while True:
-                product_input = input('Input product {} for {}: '.format(product_count, reaction_key))
-
-                if product_input == '':
-                    break
-
-                if product_input not in list_of_species:
-                    list_of_species.append(product_input)
-                    compound_count += 1
-
-                control_volume_dimensions[-1][reaction_key][product_input] = 1
-                product_count += 1
-
-            control_volume_dimensions[-1][reaction_key]['Extent'] = sp.S(input('Input the extent of {}: '.format
-                                                                         (reaction_key)))
-
-        else:
+        if reaction_key == '':
             break
+
+        control_volume_dimensions[-1][reaction_key] = reaction_dict[reaction_key]
+
+        for species in list(reaction_dict[reaction_key].keys()):
+            if species != 'Extent':
+                if species not in list_of_species:
+                    list_of_species.append(species)
+                    compound_count += 1
 
     # This loop takes inputs until an empty string is provided. Each new string is appended to the list_of_species
     while True:
@@ -105,16 +75,13 @@ def setup():
             # input the percentage of each compound in the given path
             else:
                 material = list_of_species[value - 2]
-                path[material] = sp.S(input('Input the percentage of {} going through path {}: '.format(material,
-                                                                                                        path_counter)))
+                path[material] = sp.S(input('Input the fraction of {} going through path {}: '.format(material,
+                                                                                                      path_counter)))
         # The path counter increases for clarity of input prompts
         path_counter += 1
 
     # The control_volume_dimensions are output for use in other functions
     return control_volume_dimensions
-
-if __name__ == '__main__':
-    print(setup())
 
 
 # This function is the final input function for the solving of a control volume. It creates a dictionary with keys
@@ -134,6 +101,9 @@ def info():
         info_key = 'Info {}'.format(info_count)
         info_dict[info_key] = sp.sympify(additional_info)
 
+
 if __name__ == '__main__':
-    print(setup())
+    from Chemistry.MaterialsBalance import chemical_reactions as rxn
+    reaction_dictionary = rxn.setup()
+    print(setup(reaction_dictionary))
     print(info())
