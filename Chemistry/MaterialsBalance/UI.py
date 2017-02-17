@@ -1,295 +1,261 @@
-# This file contains all of the UI code for the multi_unit_solver.
-# This isn't finished yet, and probably won't be for a while.
-# I got sick of doing UI code by hand but Qt Designer won't convert
-# .ui files to python code for me, so once I get that figured out
-# I'll continue work on this
-
-import sys, random
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import (QFont, QIcon, QColor, QPixmap, QDrag, QPainter, QPen, QBrush, QPolygon)
-import PyQt5.QtCore as QtC
-
-
-# This signal is created to later be activated by a mouse click
-class clicked_signal(QtC.QObject):
-    # the variable clicked is set to a pyqtSignal, which can be emitted later
-    clicked = QtC.pyqtSignal()
-
-
-# Here lies the main window of the UI, all action will exist in this window
-class Solver(QMainWindow):
-    unit_list = []
-    path_list = []
-
-    # initializing itself based on it's parent object, QMainWindow
-    def __init__(self):
-        super().__init__()
-
-        # Adding the UI into the process
-        self.init_UI()
-
-    # The UI is defined here
-    def init_UI(self):
-        # This statement allows the main window to accept drag and drops of widgets
-        self.setAcceptDrops(True)
-
-        test = QPushButton('test')
-        self.init_layout = QHBoxLayout(self)
-        self.init_layout.addWidget(test)
-
-        self.layout_widget = layouts()
-        self.setCentralWidget(self.layout_widget)
-
-        # self.diagram = Diagram()
-        # self.setCentralWidget(self.diagram)
-
-        # Here the status bar is defined
-        self.status_bar = self.statusBar()
-
-        # The menu bar is defined
-        menu_bar = self.menuBar()
-
-        # The exit action is defined, it is assigned a shortcut, Ctrl+Q, and text appears on the status bar
-        exit_action = QAction('&Exit', self)
-        exit_action.setShortcut('Ctrl+Q')
-        exit_action.setStatusTip('Exit application')
-        exit_action.triggered.connect(qApp.quit)
-        # save_as_action
-        # open_action
-
-        # A File tab is added to the menu bar, it contains the exit_action
-        file_menu = menu_bar.addMenu('File')
-        file_menu.addAction(exit_action)
-
-        # The insert unit action is defined, assigned a shortcut, and text appears on the status bar
-        insert_unit = QAction('&Insert Unit', self)
-        insert_unit.setShortcut('Ctrl+U')
-        insert_unit.setStatusTip('Insert a new unit')
-        insert_unit.triggered.connect(self.layout_widget.diagram.add_unit)
-
-        insert_path = QAction('&Insert Path', self)
-        insert_path.setShortcut('Ctrl+I')
-        insert_path.setStatusTip('Insert a new path')
-        insert_path.triggered.connect(self.layout_widget.diagram.add_path)
-
-        # An insert tab is added to the menu bar, it contains the insert_unit action
-        insert_menu = menu_bar.addMenu('Insert')
-        insert_menu.addAction(insert_unit)
-        insert_menu.addAction(insert_path)
-        # insert_menu.addAction(insert_control_volume)
-
-        # The window is resized and centered on the screen
-        self.resize(1125, 750)
-        self.center()
-
-        # The window is given a title and shown to the user
-        self.setWindowTitle('Materials Balance')
-        self.show()
-
-    # If something (a widget) is dragged into the main window, it will accept it
-    def dragEnterEvent(self, e):
-        e.accept()
-
-    # When something is accepted, the widget will be moved and set to the new position of the cursor
-    def dropEvent(self, e):
-        position = e.pos()
-        Diagram.move_widget.move(position)
-
-        e.setDropAction(QtC.Qt.MoveAction)
-        e.accept()
-
-    # This centers the window relative to the monitor, it is called earlier
-    def center(self):
-        screen = QDesktopWidget().screenGeometry()
-        size = self.geometry()
-        self.move((screen.width() - size.width()) / 2,
-                  (screen.height() - size.height()) / 2)
-
-
-class layouts(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        self.diagram = Diagram()
-        test = QPushButton('test')
-        hbox = QHBoxLayout()
-        hbox.addWidget(test)
-        hbox.addWidget(self.diagram)
-        hbox.setStretch(0, 2)
-        hbox.setStretch(1, 8)
-        self.setLayout(hbox)
-
-
-class Diagram(QWidget):
-    unit_list = []
-    path_list = []
-
-    def __init__(self):
-        super().__init__()
-
-    # If something (a widget) is dragged into the main window, it will accept it
-    def dragEnterEvent(self, e):
-        e.accept()
-
-    # When something is accepted, the widget will be moved and set to the new position of the cursor
-    def dropEvent(self, e):
-        position = e.pos()
-        Diagram.move_widget.move(position)
-
-        e.setDropAction(QtC.Qt.MoveAction)
-        e.accept()
+import sys
+import sympy as sp
+from PyQt5 import QtWidgets
+from Chemistry.MaterialsBalance.Stream import Stream
+from Chemistry.MaterialsBalance.ControlVolume import ControlVolume
+from Chemistry.MaterialsBalance import mainwindow
+from Chemistry.MaterialsBalance.Materials_Balance_Solver import solve
+
+# To do:
+# A script or file that allows users to confirm if their system is solvable using DoF analysis. Just lets them know
+# if the system is under or over specified and if they must assume a basis, etc.
+#
+# Possibly create a main file that calls everything else for ease
+#
+# Make it so it definitely ignores empty rows of stuff
+# Try pretty hard to break it and then sanitize the inputs (this can always be improved)
+# Make instructions painfully clear
+#
+# Table rows should have editable names, that way reactions/volumes can be titled and everything can use a dict/obj
+#
+# On the streams page, if all fractions are filled but one, automatically input a 1 - x1 - x2 ... - xn equation OR
+# input a symbol with that format equation in the info list
+#
+# A reaction object with a balance method and a check balance method to start
+#
+# Maybe replace the final script with a overall_system object that has a solve method
+#
+# Add the option to use units for the totals in each stream, as it currently assumes moles (this will likely be a mess)
+# Unit conversion methods for streams
+#
+# A linear independence checker for the equations as some things (splitters) will not work for solving equations
+#
+# The ability to save/load tables for further editing
+
+
+class MassBalanceUI(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
+
+    """This is object takes the UI from mainwindow and adds functionality. This is done using PyQt5. It allows for the
+    values entered in the table widgets to be read and stored, and later manipulated to solve systems. A plethora of
+    methods exist in this class that allow for the UI to update as it is used. More functionality may be added to this
+    as it is very modular and a user interface can have lots of useful features.
+
+    The user is prompted to build a series of pieces (reactions, streams, information) to generate the ControlVolume
+    objects that will be used to solve the multi-unit system."""
+
+    def __init__(self, parent=None):
+        super(MassBalanceUI, self).__init__(parent)
+
+        # setupUi is from the mainwindow class
+        self.setupUi(self)
+
+        # The right display is where the table widgets are shown
+        self.listWidget.currentRowChanged.connect(self.right_display)
+
+        # Pre-allocations occur here for each element of the UI: reactions, inerts, streams, info, and volumes
+        self.reaction_counter = 0
+        self.list_of_reactions = []
+
+        self.list_of_inerts = []
+        self.materials = []
+
+        self.stream_counter = 0
+        self.list_of_streams = []
+
+        self.info_counter = 0
+        self.list_of_info = []
+
+        self.volume_counter = 0
+        self.list_of_volumes = []
+
+        # This states that when a cell in a table is clicked, the connected methods will run
+        self.reactionWidget.cellClicked.connect(self.new_reaction)
+        self.streamWidget.cellClicked.connect(self.new_stream)
+        self.infoWidget.cellClicked.connect(self.new_info)
+        self.volumeWidget.cellClicked.connect(self.new_volume)
+
+        # The solve button is connected to the solve_system method
+        self.solveButton.clicked.connect(self.solve_system)
+
+    def right_display(self, i):
+
+        # The right display is a stacked widget with 4 pages, one for each tab in the list on the upper left
+        # The lists correspond to each page, first is reactions, then streams, info, and volumes
+        self.stackedWidget.setCurrentIndex(i)
+
+    # This adds a new row, which represents a reaction, if the bottom row is clicked
+    def new_reaction(self):
+
+        # If the cell clicked is at the bottom of the table widget then it will add a new row second from the bottom
+        if self.reactionWidget.currentRow() == self.reaction_counter:
+            self.reactionWidget.insertRow(self.reaction_counter)
+            self.reaction_counter += 1
+
+    # This method updates the stream tables to include all materials from the reactions/inerts page
+    # Each material is added as a column for the table
+    # This method also generates the reaction list (a feature I may move to a different method for clarity)
+    def stream_page_updater(self):
+
+        # Every reaction must be checked for new materials
+        for reaction in range(self.reaction_counter):
+
+            # Obtaining data from the table widget using the .text() method
+            reaction_materials = self.reactionWidget.item(reaction, 0).text().split()
+            coefficients = self.reactionWidget.item(reaction, 1).text().split()
 
-    # This adds a new unit widget to the main window
-    def add_unit(self):
-        self.unit_widget = Unit(self)
-        Diagram.unit_list.append(self.unit_widget)
-
-        # The unit is moved slightly away from the corner and then displayed on the main window
-        self.unit_widget.move(50, 50)
-        self.unit_widget.show()
-
-    def add_path(self):
-        self.path_widget = Path(self)
-        Diagram.path_list.append(self.path_widget)
-        self.path_widget.move(500, 400)
-        self.path_widget.show()
+            # If there are not enough coefficients in the reaction table, it will not progress
+            if len(coefficients) != len(reaction_materials):
+                print('Error, not enough materials or coefficients')
+                self.list_of_reactions = []
+                return
+
+            # If enough information is provided for the reactions/inerts table then the total materials will be stored
+            else:
+
+                # Reaction dictionaries are made and stored in the overall list_of_reactions for later ControlVolume use
+                reaction_dict = dict(zip(reaction_materials, sp.sympify(coefficients)))
+                reaction_dict['Extent'] = sp.sympify(self.reactionWidget.item(reaction, 2).text())
+                self.list_of_reactions.append(reaction_dict)
+
+                # The total materials in the system is updated for the stream table column headers
+                self.materials += list(set(reaction_materials) - set(self.materials))
+
+        # The inerts are also added to the materials
+        self.list_of_inerts += self.lineEdit.text().split()
+        self.materials += self.list_of_inerts
+
+        # Columns are inserted into the stream widget for each material present in the system
+        for column_count in range(len(self.materials)):
+            self.streamWidget.insertColumn(column_count)
+
+        # Each material (plus 'Total') is added as a header to all the new columns
+        self.streamWidget.setHorizontalHeaderLabels(['Total'] + self.materials)
 
+    # This adds a new row, which represents a stream, if the bottom row is clicked
+    # The first time this runs, the stream_page_updater() method will be called
+    def new_stream(self):
 
-# A unit widget is where a process occurs (a reactor, evaporator, separator, etc)
-# Make Unit accommodate for new text that may be longer/shorter
-class Unit(QWidget):
-    # Static variable identity is defined to keep track of each unit created
-    identity = 0
+        # This only runs the first time a new row is added to the table
+        if self.stream_counter == 0:
+            self.stream_page_updater()
 
-    def __init__(self, parent):
-        super().__init__(parent)
+        # If the cell clicked is at the bottom of the table widget then it will add a new row second from the bottom
+        if self.streamWidget.currentRow() == self.stream_counter:
+            self.streamWidget.insertRow(self.stream_counter)
+            self.stream_counter += 1
+
+    # This adds a new row, which represents a new equation from additional information, if the bottom row is clicked
+    def new_info(self):
 
-        # The current unit is given an identity, starting at 0, and then the identity is increased for the next unit
-        self.identity = Unit.identity
-        Unit.identity += 1
-
-        # The unit is given a frame to add borders, it is given the same size as the unit
-        self.unit_frame = QFrame(self)
-        self.unit_frame.setStyleSheet("QWidget { border: 2px solid black }")
-        self.unit_frame.resize(120, 80)
+        # If the cell clicked is at the bottom of the table widget then it will add a new row second from the bottom
+        if self.infoWidget.currentRow() == self.info_counter:
+            self.infoWidget.insertRow(self.info_counter)
+            self.info_counter += 1
+
+    # This uses the inputs from the stream table to generate a list that the code can maneuver through
+    def stream_list_generator(self):
 
-        # The unit is given a label of text, which is aligned to the center of the box
-        self.unit_label = QLabel(self)
-        self.unit_label.setText('Unit')
-        self.unit_label.setAlignment(QtC.Qt.AlignCenter)
-        self.unit_label.resize(120, 80)
+        # Every row in the stream table corresponds to a given Stream object
+        for stream in range(self.stream_counter):
 
-        # If the unit is clicked, it will connect to the method down below
-        self.unit_clicked_signal = clicked_signal()
-        self.unit_clicked_signal.clicked.connect(self.buttonClicked)
+            # The Stream object is used to store each stream, starting with an empty Stream object
+            stream_object = Stream()
 
-        # The unit itself is resized
-        self.resize(120, 80)
+            # Every column header is read for the given stream, these provide the keys for the stream object
+            # Every value in the cell corresponding to the given stream (row) and material (column) is stored in the
+            # Stream object in the proper key space
+            for column in range(self.streamWidget.columnCount() - 1):
+                stream_object[self.streamWidget.horizontalHeaderItem(column).text()] = sp.sympify(
+                    self.streamWidget.item(stream, column).text())
 
-    # This allows for the unit to be dragged around the main window
-    def mouseMoveEvent(self, e):
-        # It will only trigger if the left button is clicked onto the widget itself
-        if e.buttons() != QtC.Qt.LeftButton:
-            return
+            # The finished Stream() object is then appended to the total list_of_streams for the system
+            self.list_of_streams.append(stream_object)
 
-        unit_id = self.identity
-        Diagram.move_widget = Diagram.unit_list[unit_id]
+    # This uses the inputs from the info table to generate a list that the code can maneuver through
+    def info_list_generator(self):
 
-        # Data will be gathered from the cursor to appropriately move the unit
-        unit_mime_data = QtC.QMimeData()
+        # The text within an info cell is converted to a sympy expression and stored in the list_of_info
+        for info in range(self.info_counter):
+            self.list_of_info.append(sp.sympify(self.infoWidget.item(info, 0).text()))
 
-        # The unit will be dragged to the appropriate position based on the data
-        drag = QDrag(self)
-        drag.setMimeData(unit_mime_data)
-        drag.setHotSpot(e.pos() - self.rect().topLeft())
+    # This adds a new row, which represents a ControlVolume, if the bottom row is clicked
+    # The first time this runs, both the stream_list_generator() and the info_list_generator() methods are called
+    def new_volume(self):
 
-        dropAction = drag.exec_(QtC.Qt.MoveAction)
+        # This only runs the first time a new row is added to the table
+        if self.volume_counter == 0:
+            self.stream_list_generator()
+            self.info_list_generator()
 
-    # If the unit is clicked on with the right button, the clicked signal will emit
-    def mousePressEvent(self, e):
-        if e.buttons() == QtC.Qt.RightButton:
-            self.unit_clicked_signal.clicked.emit()
+        # If the cell clicked is at the bottom of the table widget then it will add a new row second from the bottom
+        if self.volumeWidget.currentRow() == self.volume_counter:
+            self.volumeWidget.insertRow(self.volume_counter)
+            self.volume_counter += 1
 
-    # When the clicked signal is emitted, this method will begin
-    def buttonClicked(self):
-        # An input dialog window will be shown
-        text, ok = QInputDialog.getText(self, 'Input Dialog', 'Rename the unit:')
+    # This method occurs when the solve button is pressed, it will solve the system for all unknowns (if it can) and
+    # print the resulting dictionary with unknown:solution format
+    # To do this it must read the values from the volume table and build up each ControlVolume from the pile of pieces
+    def solve_system(self):
+        print('Solving the system')
 
-        # If the user accepts the changes (clicks ok instead of cancel)
-        if ok:
-            # Then whatever text is typed into the input dialog window will replace the unit label text
-            self.unit_label.setText(text)
+        # Every row in the volume table will be read
+        for volume in range(self.volume_counter):
 
+            # If the reaction cell for a volume is None, then that means the user didn't click on it to make it an
+            # empty string. This if statement had to be put in place for when this occurs
+            if self.volumeWidget.item(volume, 0) is None:
+                reactions_in = []
 
-# Needs to be label-able
-# Rotatable
-# Editable
-class Path(QWidget):
-    identity = 0
+            # If there is information in the reaction cell for the given volume, then they will be stored for later use
+            else:
+                reactions_in = self.volumeWidget.item(volume, 0).text().split()
 
-    def __init__(self, parent):
-        super().__init__(parent)
+            # This is to ensure no issues occur if the streams_in slot is untouched
+            if self.volumeWidget.item(volume, 1) is None:
+                streams_in = []
 
-        self.identity = Path.identity
-        Path.identity += 1
+            # If there is information in the streams_in cell for the volume, then they will be stored for later use
+            else:
+                streams_in = self.volumeWidget.item(volume, 1).text().split()
 
-        self.setMinimumSize(120, 80)
+            # This is to ensure no issues occur if the streams_out slot is untouched
+            if self.volumeWidget.item(volume, 2) is None:
+                streams_out = []
 
-        self.path_clicked_signal = clicked_signal()
-        self.path_clicked_signal.clicked.connect(self.buttonClicked)
+            # If there is information in the streams_out cell for the volume, then they will be stored for later use
+            else:
+                streams_out = self.volumeWidget.item(volume, 2).text().split()
 
-        self.path_label = QLabel(self)
-        self.path_label.setText(str(self.identity))
-        self.path_label.move(60, 50)
+            # The following lists are used to actually build the ControlVolume from the previous input lists
+            reactions = []
+            streams = []
 
-        self.shape = QPolygon([QtC.QPoint(150, 50), QtC.QPoint(120, 55), QtC.QPoint(120, 45)])
+            # Each reaction reads from the list_of_reactions and appends the appropriate reactions to the ControlVolume
+            for reaction in reactions_in:
+                reactions.append(self.list_of_reactions[int(reaction) - 1])
 
-    def mouseMoveEvent(self, e):
-        # It will only trigger if the left button is clicked onto the widget itself
-        if e.buttons() != QtC.Qt.LeftButton:
-            return
+            # Each reaction reads from the list_of_streams and appends the appropriate streams to the ControlVolume
+            for stream in streams_in:
+                streams.append(self.list_of_streams[int(stream) - 1])
 
-        path_id = self.identity
-        Diagram.move_widget = Diagram.path_list[path_id]
+            # Each reaction reads from the list_of_streams and appends the appropriate streams to the ControlVolume
+            # These streams must have a negative 'Total' value, as the flow out of the ControlVolume
+            for stream in streams_out:
+                streams.append(-self.list_of_streams[int(stream) - 1])
 
-        # Data will be gathered from the cursor to appropriately move the unit
-        unit_mime_data = QtC.QMimeData()
+            # A ControlVolume object is created using the unique lists of reactions and streams, and the total info
+            control_volume = ControlVolume(reactions, streams, self.list_of_info)
 
-        # The unit will be dragged to the appropriate position based on the data
-        drag = QDrag(self)
-        drag.setMimeData(unit_mime_data)
-        drag.setHotSpot(e.pos() - self.rect().topLeft())
+            # The built ControlVolume object is added to the list_of_volumes
+            self.list_of_volumes.append(control_volume)
 
-        dropAction = drag.exec_(QtC.Qt.MoveAction)
+        # The solve() function is called to return a dictionary of solutions which is printed
+        # This will likely be added to the UI somehow so the user never has to leave the window
+        print(solve(self.list_of_volumes))
 
-    def paintEvent(self, e):
-        qp = QPainter()
-        qp.begin(self)
-        self.drawLines(qp)
-        self.drawShape(qp)
-        qp.end()
-
-    def drawLines(self, qp):
-        pen = QPen(QtC.Qt.black, 2, QtC.Qt.SolidLine)
-
-        qp.setPen(pen)
-        qp.drawLine(10, 50, 150, 50)
-
-    def drawShape(self, qp):
-        brush = QBrush(QtC.Qt.black)
-        qp.setBrush(QBrush(QtC.Qt.black))
-        qp.drawPolygon(self.shape)
-
-    def mousePressEvent(self, e):
-        if e.buttons() == QtC.Qt.RightButton:
-            self.path_clicked_signal.clicked.emit()
-
-    # When the clicked signal is emitted, this method will begin
-    def buttonClicked(self):
-        print('yay')
-
-
+# If this is the main script that is running, then the window will show and begin to function
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = Solver()
-    sys.exit(app.exec_())
+    app = QtWidgets.QApplication(sys.argv)
+    form = MassBalanceUI()
+    form.show()
+    app.exec_()
