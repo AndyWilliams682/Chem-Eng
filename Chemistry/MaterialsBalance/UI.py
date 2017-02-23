@@ -2,6 +2,7 @@ import sys
 import sympy as sp
 from PyQt5 import QtWidgets
 from Chemistry.MaterialsBalance.Stream import Stream
+from Chemistry.MaterialsBalance.Reaction import Reaction
 from Chemistry.MaterialsBalance.ControlVolume import ControlVolume
 from Chemistry.MaterialsBalance import mainwindow
 from Chemistry.MaterialsBalance.Materials_Balance_Solver import solve
@@ -13,6 +14,7 @@ from Chemistry.MaterialsBalance.Materials_Balance_Solver import solve
 # Possibly create a main file that calls everything else for ease
 #
 # Make it so it definitely ignores empty rows of stuff
+# Lots of if statements just for every possible exception
 # Try pretty hard to break it and then sanitize the inputs (this can always be improved)
 # Make instructions painfully clear
 #
@@ -20,8 +22,6 @@ from Chemistry.MaterialsBalance.Materials_Balance_Solver import solve
 #
 # On the streams page, if all fractions are filled but one, automatically input a 1 - x1 - x2 ... - xn equation OR
 # input a symbol with that format equation in the info list
-#
-# A reaction object with a balance method and a check balance method to start
 #
 # Maybe replace the final script with a overall_system object that has a solve method
 #
@@ -94,7 +94,7 @@ class MassBalanceUI(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
     # This method updates the stream tables to include all materials from the reactions/inerts page
     # Each material is added as a column for the table
     # This method also generates the reaction list (a feature I may move to a different method for clarity)
-    def stream_page_updater(self):
+    def reaction_list_generator(self):
 
         # Every reaction must be checked for new materials
         for reaction in range(self.reaction_counter):
@@ -113,9 +113,9 @@ class MassBalanceUI(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
             else:
 
                 # Reaction dictionaries are made and stored in the overall list_of_reactions for later ControlVolume use
-                reaction_dict = dict(zip(reaction_materials, sp.sympify(coefficients)))
-                reaction_dict['Extent'] = sp.sympify(self.reactionWidget.item(reaction, 2).text())
-                self.list_of_reactions.append(reaction_dict)
+                reaction_object = Reaction(dict(zip(reaction_materials, sp.sympify(coefficients))), '',
+                                           sp.sympify(self.reactionWidget.item(reaction, 2).text()))
+                self.list_of_reactions.append(reaction_object)
 
                 # The total materials in the system is updated for the stream table column headers
                 self.materials += list(set(reaction_materials) - set(self.materials))
@@ -137,7 +137,7 @@ class MassBalanceUI(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
 
         # This only runs the first time a new row is added to the table
         if self.stream_counter == 0:
-            self.stream_page_updater()
+            self.reaction_list_generator()
 
         # If the cell clicked is at the bottom of the table widget then it will add a new row second from the bottom
         if self.streamWidget.currentRow() == self.stream_counter:
