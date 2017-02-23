@@ -13,7 +13,7 @@ class ControlVolume(object):
     Each combination of streams and reactions is generally specific to each ControlVolume while the total information
     given to solve a system can span across multiple ControlVolumes.
 
-    The input streams must be a list of Stream objects. reactions must be a list of dictionaries (soon to be updated)
+    The input streams must be a list of Stream objects. reactions must be a list of Reaction objects
     and the total_information must be a list of sympy expressions (which are assumed to equal zero).
 
     When a ControlVolume is created, it will automatically identify which parts of the total_information apply to the
@@ -64,38 +64,23 @@ class ControlVolume(object):
                 # Ex: 'H2O': y1n1 + y2n2 - y3n3 - y4n4 = 0, where y is the mole fraction for a given stream
                 self.equations_dict[material] = sp.Add(self.equations_dict[material], sp.Mul(fraction, stream['Total']))
 
-        # The molar change must be set to zero before the next loop
-        # It represents the total change in moles from the reaction assuming lowest integer coefficients
-        self.molar_change = 0
-
         # This loop adds the mass generated or consumed for each material in the system
         for reaction in self.reactions:
 
-            # If the reaction essentially doesn't exist, it will not have an effect on the equations in the system
-            if reaction != {}:
-                for material, coefficient in reaction.items():
+            for material, coefficient in reaction.species.items():
 
-                    # The extent of reaction is the only place (ideally) that an unknown will occur for a reaction
-                    if material == 'Extent':
+                # Each material equation will add the reaction contribution similarly to the streams
+                self.equations_dict[material] = sp.Add(self.equations_dict[material],
+                                                       sp.Mul(coefficient, reaction.extent))
 
-                        # If there is a new unknown, it will be added to the dict_of_variables
-                        for variable in reaction[material].atoms(sp.Symbol):
-                            if variable not in self.dict_of_variables:
-                                self.dict_of_variables[variable] = variable
+            # If there is a new unknown, it will be added to the dict_of_variables
+            for variable in reaction.extent.atoms(sp.Symbol):
+                if variable not in self.dict_of_variables:
+                    self.dict_of_variables[variable] = variable
 
-                    # For all other materials, like 'H2O'
-                    else:
-
-                        # The molar change will increase for products and decrease for reactants
-                        self.molar_change += coefficient
-
-                        # Each material equation will add the reaction contribution similarly to the streams
-                        self.equations_dict[material] = sp.Add(self.equations_dict[material],
-                                                               sp.Mul(coefficient, reaction['Extent']))
-
-                # The total molar_change when used with the extent will contribute to the 'Total' equation
-                self.equations_dict['Total'] = sp.Add(self.equations_dict['Total'],
-                                                      sp.Mul(self.molar_change, reaction['Extent']))
+            # The total molar_change when used with the extent will contribute to the 'Total' equation
+            self.equations_dict['Total'] = sp.Add(self.equations_dict['Total'],
+                                                  sp.Mul(reaction.molar_change, reaction.extent))
 
         # The info_counter must be set to zero before the next loop
         self.info_counter = 0
