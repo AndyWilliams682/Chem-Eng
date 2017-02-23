@@ -112,7 +112,7 @@ class MassBalanceUI(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
             # If enough information is provided for the reactions/inerts table then the total materials will be stored
             else:
 
-                # Reaction dictionaries are made and stored in the overall list_of_reactions for later ControlVolume use
+                # Reaction objects are made and stored in the overall list_of_reactions for later ControlVolume use
                 reaction_object = Reaction(dict(zip(reaction_materials, sp.sympify(coefficients))), '',
                                            sp.sympify(self.reactionWidget.item(reaction, 2).text()))
                 self.list_of_reactions.append(reaction_object)
@@ -165,8 +165,17 @@ class MassBalanceUI(QtWidgets.QMainWindow, mainwindow.Ui_MainWindow):
             # Every value in the cell corresponding to the given stream (row) and material (column) is stored in the
             # Stream object in the proper key space
             for column in range(self.streamWidget.columnCount() - 1):
-                stream_object[self.streamWidget.horizontalHeaderItem(column).text()] = sp.sympify(
-                    self.streamWidget.item(stream, column).text())
+
+                # The first column is always the total column
+                if column == 0:
+
+                    # The total attribute for the stream is set to the total value from the table widget
+                    stream_object.total = sp.sympify(self.streamWidget.item(stream, column).text())
+
+                # Every material fraction is then added to the stream composition dictionary {material:fraction} format
+                else:
+                    stream_object.composition[self.streamWidget.horizontalHeaderItem(column).text()] = sp.sympify(
+                        self.streamWidget.item(stream, column).text())
 
             # The finished Stream() object is then appended to the total list_of_streams for the system
             self.list_of_streams.append(stream_object)

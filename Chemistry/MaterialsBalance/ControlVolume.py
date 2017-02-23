@@ -31,16 +31,16 @@ class ControlVolume(object):
 
         # The equations_dict will hold all equations that can be used to solve the system
         # The dict_of_variables holds all unknowns and their solutions (or symbols if no solution has been found yet)
-        self.equations_dict = {}
+        self.equations_dict = {'Total': sp.sympify('0')}
         self.dict_of_variables = {}
 
         # This loop accounts for the mass flowing in and out of the system, known as streams
         for stream in self.streams:
 
-            # It first creates empty equation dictionaries for each unique key in all the streams ('Total', 'H2O')
-            for material, value in stream.items():
+            # It first creates empty equation dictionaries for each unique key in all the streams ('HCl', 'H2O')
+            for material, value in stream.composition.items():
 
-                # Each material provides only one equation, along with a 'Total' equation for the system, no duplicates
+                # Each material provides only one equation, no duplicates
                 if material not in self.equations_dict:
                     self.equations_dict[material] = 0
 
@@ -51,18 +51,19 @@ class ControlVolume(object):
                     if variable not in self.dict_of_variables:
                         self.dict_of_variables[variable] = variable
 
-                # This fraction is set for when material == 'Total', as the total lacks any fraction that scales it
-                fraction = 1
-
-                # If the material is anything but 'Total' (like 'H2O') then it's fraction in the stream is used
-                if material != 'Total':
-                    fraction = value
-
                 # The balance equation for each material adds the given part for each stream
                 # Advanced sympy operator functions are used to modify the equation in a manner that builds it properly
-                # Ex: 'Total': n1 + n2 - n3 - n4 = 0, n is a mole total for a given stream
-                # Ex: 'H2O': y1n1 + y2n2 - y3n3 - y4n4 = 0, where y is the mole fraction for a given stream
-                self.equations_dict[material] = sp.Add(self.equations_dict[material], sp.Mul(fraction, stream['Total']))
+                # Ex: 'H2O': y1n1 + y2n2 - y3n3 - y4n4 = 0, where y is the mole fraction for a given Stream
+                self.equations_dict[material] = sp.Add(self.equations_dict[material], sp.Mul(value, stream.total))
+
+            # The total value for the stream is added to the 'Total' equation
+            # Ex: 'Total': n1 + n2 - n3 - n4 = 0, n is a mole total for a given Stream
+            self.equations_dict['Total'] = sp.Add(self.equations_dict['Total'], stream.total)
+
+            # If the total value has a new unknown, it will be added to the dict_of_variables
+            for variable in stream.total.atoms(sp.Symbol):
+                if variable not in self.dict_of_variables:
+                    self.dict_of_variables[variable] = variable
 
         # This loop adds the mass generated or consumed for each material in the system
         for reaction in self.reactions:
@@ -73,7 +74,7 @@ class ControlVolume(object):
                 self.equations_dict[material] = sp.Add(self.equations_dict[material],
                                                        sp.Mul(coefficient, reaction.extent))
 
-            # If there is a new unknown, it will be added to the dict_of_variables
+            # If there is a new unknown (usually only in the extent), it will be added to the dict_of_variables
             for variable in reaction.extent.atoms(sp.Symbol):
                 if variable not in self.dict_of_variables:
                     self.dict_of_variables[variable] = variable
