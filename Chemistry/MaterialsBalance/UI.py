@@ -1,11 +1,11 @@
 import sys
 import sympy as sp
 from PyQt5 import QtWidgets
-from Chemistry.MaterialsBalance.Stream import Stream
-from Chemistry.MaterialsBalance.Reaction import Reaction
-from Chemistry.MaterialsBalance.ControlVolume import ControlVolume
-from Chemistry.MaterialsBalance import mainwindow
-from Chemistry.MaterialsBalance.Materials_Balance_Solver import solve
+from Chemistry.OldMaterialsBalance.Stream import Stream
+from Chemistry.OldMaterialsBalance.Reaction import Reaction
+from Chemistry.OldMaterialsBalance.ControlVolume import ControlVolume
+from Chemistry.OldMaterialsBalance import mainwindow
+from Chemistry.OldMaterialsBalance.Materials_Balance_Solver import solve
 
 # To do:
 # A script or file that allows users to confirm if their system is solvable using DoF analysis. Just lets them know
