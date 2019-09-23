@@ -1,3 +1,5 @@
+# This code solves a simple reaction kinetics problem to determine overall yield and other
+# pertinent variables
 import sympy as sp
 
 
@@ -16,6 +18,7 @@ def model_cr(initial_conc, final_conc):
     return cr, overall_yield, tau
 
 
+# Determines the concentration based on conversion and the initial concentration
 def xa_ca(xa, ca0):
     return ca0 * (1 - xa)
 
